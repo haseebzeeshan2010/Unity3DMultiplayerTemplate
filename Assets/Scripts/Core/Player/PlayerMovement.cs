@@ -3,18 +3,17 @@ using Unity.Netcode;
 
 public class PlayerMovement : NetworkBehaviour
 {
-    //Serialized Fields used to reference the input reader, the body transform, and the rigidbody
     [Header("References")]
     [SerializeField] private InputReader inputReader;
     [SerializeField] private Transform bodyTransform;
-    [SerializeField] private Rigidbody rb; // Changed to 3D Rigidbody
+    [SerializeField] private Rigidbody rb;
 
     [Header("Movement Settings")]
     [SerializeField] private float movementSpeed = 4f;
-
-    // [SerializeField] private float turningRate = 30f; // Removed turning rate
+    [SerializeField] private float smoothTime = 0.1f; // Adjustable smoothing factor
 
     private Vector2 previousMovementInput;
+    private Vector3 smoothVelocity; // Used by SmoothDamp
 
     public override void OnNetworkSpawn()
     {
@@ -28,20 +27,14 @@ public class PlayerMovement : NetworkBehaviour
         inputReader.MoveEvent -= HandleMove;
     }
 
-    // void Update()
-    // {
-    //     if (!IsOwner) { return; }
-    // float zRotation = previousMovementInput.x * -turningRate * Time.deltaTime;
-    // bodyTransform.Rotate(0f, 0f, zRotation);
-    // }
-
     private void FixedUpdate()
     {
         if (!IsOwner) { return; }
-
+        
         Vector3 movementDirection = new Vector3(previousMovementInput.x, 0f, previousMovementInput.y).normalized;
         Vector3 targetPosition = rb.position + movementDirection * movementSpeed * Time.fixedDeltaTime;
-        rb.MovePosition(Vector3.Lerp(rb.position, targetPosition, 0.1f)); // Adjust the interpolation factor (0.1f) as needed
+        Vector3 newPosition = Vector3.SmoothDamp(rb.position, targetPosition, ref smoothVelocity, smoothTime);
+        rb.MovePosition(newPosition);
     }
 
     private void HandleMove(Vector2 movementInput)
