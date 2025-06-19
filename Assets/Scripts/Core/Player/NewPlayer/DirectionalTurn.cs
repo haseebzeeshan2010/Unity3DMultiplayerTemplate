@@ -23,7 +23,7 @@ public class DirectionalTurn : MonoBehaviour
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
         }
 
-        Debug.Log("Current Speed: " + playerMovement.MovementSpeed);
+
 
         // animator.SetFloat(VelocityHash, playerMovement.MovementSpeed);
 

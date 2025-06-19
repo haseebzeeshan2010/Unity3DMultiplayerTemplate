@@ -22,9 +22,10 @@ public class PlayerMovement : NetworkBehaviour
     public float MovementSpeed;
 
 
+
     public NetworkVariable<bool> IsMoving = new NetworkVariable<bool>(
-        false, 
-        NetworkVariableReadPermission.Everyone, 
+        false,
+        NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner
     );
 
@@ -69,12 +70,15 @@ public class PlayerMovement : NetworkBehaviour
         {
             IsMoving.Value = false;
         }
-        
-        
+
+
     }
 
     private void HandleMove(Vector2 movementInput)
     {
         previousMovementInput = movementInput;
     }
+
+
+    
 }
