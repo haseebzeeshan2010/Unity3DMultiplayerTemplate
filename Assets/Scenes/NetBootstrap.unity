@@ -130,6 +130,7 @@ GameObject:
   - component: {fileID: 18538314}
   - component: {fileID: 18538313}
   - component: {fileID: 18538312}
+  - component: {fileID: 18538316}
   - component: {fileID: 18538315}
   m_Layer: 0
   m_Name: NetworkManager
@@ -239,7 +240,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_PresetAsset: {fileID: 0}
   m_PresetReference:
-    rid: 2910911302982697071
+    rid: 2910911302982697183
   m_Scenario:
     rid: -2
   m_IsScenarioSettingsFolded: 0
@@ -249,7 +250,7 @@ MonoBehaviour:
     RefIds:
     - rid: -2
       type: {class: , ns: , asm: }
-    - rid: 2910911302982697071
+    - rid: 2910911302982697183
       type: {class: NetworkSimulatorPreset, ns: Unity.Multiplayer.Tools.NetworkSimulator.Runtime, asm: Unity.Multiplayer.Tools.NetworkSimulator.Runtime}
       data:
         <Name>k__BackingField: None
@@ -258,6 +259,19 @@ MonoBehaviour:
         <PacketJitterMs>k__BackingField: 0
         <PacketLossInterval>k__BackingField: 0
         <PacketLossPercent>k__BackingField: 0
+--- !u!114 &18538316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 18538311}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f45f32b40a2aac84cacb473221d4bcf2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  transport: {fileID: 18538312}
 --- !u!1 &511443296
 GameObject:
   m_ObjectHideFlags: 0

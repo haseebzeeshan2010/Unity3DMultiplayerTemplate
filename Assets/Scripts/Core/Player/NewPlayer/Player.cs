@@ -1,6 +1,5 @@
 using Unity.Netcode;
 using UnityEngine;
-using Unity.Cinemachine;
 using Unity.Collections;
 using System;
 public class Player : NetworkBehaviour
@@ -29,7 +28,7 @@ public class Player : NetworkBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
@@ -45,17 +44,22 @@ public class Player : NetworkBehaviour
         }
 
         // Timer logic for tag cooldown (no coroutines)
+        // Timer logic for tag cooldown (no coroutines)
         if (!Taggable.Value)
         {
             tagCooldown -= Time.deltaTime;
             if (tagCooldown <= 0f)
             {
-                Taggable.Value = true;
+
                 tagCooldown = 5; // Reset cooldown for next time
+
+                if (IsServer)
+                {
+                    Taggable.Value = true;
+                }
             }
         }
     }
-
 
     public override void OnNetworkSpawn()
     {
