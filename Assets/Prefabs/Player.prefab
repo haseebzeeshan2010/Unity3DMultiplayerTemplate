@@ -255,7 +255,7 @@ MonoBehaviour:
   ScaleThreshold: 0.01
   UseQuaternionSynchronization: 0
   UseQuaternionCompression: 0
-  UseHalfFloatPrecision: 0
+  UseHalfFloatPrecision: 1
   InLocalSpace: 0
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
@@ -358,9 +358,7 @@ MonoBehaviour:
         byte0027: 0
         byte0028: 0
         byte0029: 0
-  Tagged:
-    m_InternalValue: 0
-  Taggable:
+  TagStatus:
     m_InternalValue: 0
   TagBlock: {fileID: 6130229700567556465}
 --- !u!136 &1576327880018846443

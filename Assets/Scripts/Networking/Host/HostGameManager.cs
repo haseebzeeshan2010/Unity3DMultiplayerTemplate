@@ -84,6 +84,13 @@ public class HostGameManager : IDisposable
             return;
         }
 
+        // If the NetworkServer already exists, dispose of it to avoid memory leaks.
+        // This is important to ensure that we do not create multiple instances of NetworkServer.
+        if (NetworkServer != null)
+        {
+            NetworkServer.Dispose();
+        }
+
         NetworkServer = new NetworkServer(NetworkManager.Singleton);
 
         UserData userData = new UserData

@@ -33,7 +33,7 @@ public class TagStarter : NetworkBehaviour
         var playerComponent = playerObject != null ? playerObject.GetComponent<Player>() : null;
         if (playerComponent != null)
         {
-            playerComponent.Tagged.Value = true;
+            playerComponent.TagStatus.Value = Player.TagState.Tagged; // Set the player to be taggable
         }
     }
 }
