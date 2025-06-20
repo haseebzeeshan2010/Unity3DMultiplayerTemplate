@@ -28,7 +28,7 @@ public class Player : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-    private float tagCooldown = 15f;
+    private float tagCooldown = 2f;
     [SerializeField] private GameObject TagBlock;
 
     private void Awake()
@@ -62,7 +62,7 @@ public class Player : NetworkBehaviour
             tagCooldown -= Time.deltaTime;
             if (tagCooldown <= 0f)
             {
-                tagCooldown = 5f;
+                tagCooldown = 2f;
                 TagStatus.Value = TagState.Taggable;
             }
         }
