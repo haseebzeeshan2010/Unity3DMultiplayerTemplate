@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6923102742358224224}
   - component: {fileID: 2852455260960026141}
   - component: {fileID: 5413510168857594084}
+  - component: {fileID: 5918361818203140721}
   m_Layer: 0
   m_Name: FollowCam
   m_TagString: Untagged
@@ -26,13 +27,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 204358857353426017}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.2376859, y: 0, z: 0, w: 0.97134215}
-  m_LocalPosition: {x: 0, y: 2.71, z: -4.47}
+  m_LocalRotation: {x: 0.4861261, y: 0.00000003683165, z: -0.00000002048868, w: 0.87388873}
+  m_LocalPosition: {x: 0, y: 4.666667, z: -3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2504099797683256295}
-  m_LocalEulerAnglesHint: {x: 27.5, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 52, y: 0, z: 0}
 --- !u!114 &2852455260960026141
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -94,7 +95,36 @@ MonoBehaviour:
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
-  FollowOffset: {x: 0, y: 2.71, z: -4.47}
+  FollowOffset: {x: 0, y: 7, z: -4.5}
+--- !u!114 &5918361818203140721
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 204358857353426017}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f38bda98361e1de48a4ca2bd86ea3c17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Composition:
+    ScreenPosition: {x: 0, y: 0}
+    DeadZone:
+      Enabled: 0
+      Size: {x: 0.2, y: 0.2}
+    HardLimits:
+      Enabled: 0
+      Size: {x: 0.8, y: 0.8}
+      Offset: {x: 0, y: 0}
+  CenterOnActivate: 1
+  TargetOffset: {x: 0, y: -0.25, z: 0}
+  Damping: {x: 7, y: 0.5}
+  Lookahead:
+    Enabled: 0
+    Time: 0
+    Smoothing: 0
+    IgnoreY: 0
 --- !u!1 &707149894060409195
 GameObject:
   m_ObjectHideFlags: 0
@@ -279,8 +309,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.5, y: 1.5, z: 1.5}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4709212665429145585}
   - {fileID: 6923102742358224224}
@@ -366,8 +396,8 @@ Rigidbody:
   m_GameObject: {fileID: 1093806661926670945}
   serializedVersion: 4
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_Drag: 1
+  m_AngularDrag: 0.1
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -381,7 +411,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 2
+  m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
 --- !u!114 &4519816249288160625
@@ -401,8 +431,8 @@ MonoBehaviour:
   bodyTransform: {fileID: 2504099797683256295}
   rb: {fileID: 6312962699959651409}
   animator: {fileID: 8623831272579412928}
-  movementSpeed: 130
-  smoothTime: 0.5
+  movementSpeed: 10
+  accelerationSmoothTime: 0.15
   MovementDirection: {x: 0, y: 0, z: 0}
   MovementSpeed: 0
   IsMoving:
@@ -708,7 +738,7 @@ CapsuleCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9212165571134286992}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 0a43671ec0af77749ace170fcda2daae, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
