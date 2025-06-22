@@ -18,6 +18,13 @@ public class PlayerMovement : NetworkBehaviour
     private Vector2 previousMovementInput;
     private Vector3 currentVelocity; // Used by SmoothDamp
 
+    // Network sync fields
+    private Vector3 networkVelocity = Vector3.zero;
+    private Vector3 networkPosition = Vector3.zero;
+    private Vector3 estimatedPosition = Vector3.zero;
+    // private float lastUpdateTime = 0f;
+    // private float positionErrorThreshold = 0.5f;
+
     public Vector3 MovementDirection;
     public float MovementSpeed;
 
@@ -44,9 +51,18 @@ public class PlayerMovement : NetworkBehaviour
     {
         animator.SetBool("IsMoving", IsMoving.Value);
 
-        if (!IsOwner) { return; }
+        if (IsOwner)
+        {
+            CharacterMover();
 
-        CharacterMover();
+            // SendPositionToServerRpc(rb.position, rb.linearVelocity); // Gotta add
+        }
+        else
+        {
+            // ExtrapolateMovementFromPreviousData(); //Also gotta add
+        }
+
+
     }
 
     private void HandleMove(Vector2 movementInput)
@@ -82,4 +98,59 @@ public class PlayerMovement : NetworkBehaviour
 
         IsMoving.Value = MovementSpeed > 3f;
     }
+
+    // private void ExtrapolateMovementFromPreviousData()
+    // {
+    //     estimatedPosition = networkPosition + networkVelocity * ((float)NetworkManager.Singleton.ServerTime.TimeAsFloat - lastUpdateTime);
+
+    //     Vector3 positionError = estimatedPosition - rb.position;
+    //     if (positionError.magnitude > positionErrorThreshold)
+    //     {
+    //         rb.position = Vector3.Lerp(rb.position, estimatedPosition, Time.deltaTime * 10);
+    //     }
+
+    //     rb.transform.forward = Vector3.Lerp(rb.transform.forward, networkVelocity.normalized, Time.deltaTime * 10);
+
+    //     rb.linearVelocity = networkVelocity;
+    // }
+
+
+    
+
+    // [ServerRpc]
+
+    // private void SendPositionToServerRpc(Vector3 position, Vector3 velocity)
+    // {
+    //     networkPosition = position;
+    //     networkVelocity = velocity;
+
+    //     SendPositionFromServerToClientRpc(position, velocity, (float)NetworkManager.Singleton.ServerTime.TimeAsFloat);
+    // }
+
+    
+
+
+    // [ClientRpc(Delivery = RpcDelivery.Unreliable)]
+
+    // public void SendPositionFromServerToClientRpc(Vector3 position, Vector3 velocity, float serverTime)
+    // {
+    //     if (!IsOwner)
+    //     {
+    //         networkPosition = position;
+    //         networkVelocity = velocity;
+
+    //         lastUpdateTime = serverTime;
+
+    //         // Update MovementDirection and ensure y is always 0
+    //         Vector3 horizontalVelocity = velocity;
+    //         horizontalVelocity.y = 0f;
+    //         MovementDirection = horizontalVelocity.sqrMagnitude > 0.001f ? horizontalVelocity.normalized : Vector3.zero;
+    //         MovementDirection.y = 0f; // Explicitly set y to 0
+
+    //         MovementSpeed = horizontalVelocity.magnitude;
+
+    //         // Optionally, you can also update the animator or other components here
+    //         // animator.SetBool("IsMoving", velocity.magnitude > 0.1f);
+    //     }
+    // }
 }
