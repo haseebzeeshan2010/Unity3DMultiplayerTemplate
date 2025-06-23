@@ -16,7 +16,7 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
         private Queue<State> stateBuffer = new Queue<State>();
         private const float interpolationBackTime = 0.2f;
         private const int maxBufferSize = 40;
-        private const float smoothingSpeed = 10f;
+        private const float smoothingSpeed = 20f;
         private const float snapDistance = 5f;
 
         private Vector3 velocity;
