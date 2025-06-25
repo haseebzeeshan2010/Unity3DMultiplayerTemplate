@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using Unity.Collections;
+using Unity.Cinemachine;
 public class NameDisplay : MonoBehaviour
 {
     // Start is called once before the first execution of Update after the MonoBehaviour is created
@@ -10,18 +11,19 @@ public class NameDisplay : MonoBehaviour
 
     [SerializeField] private Player player; // Reference to the Player component.
 
+    [SerializeField] private CinemachineCamera virtualCamera;
+
     void Start()
     {
         HandlePlayerNameChanged(string.Empty, player.PlayerName.Value); // Initialize the display name with the current player name.
     
         player.PlayerName.OnValueChanged += HandlePlayerNameChanged; // Subscribe to the PlayerName variable's value change event.
-
     }
 
     // Update is called once per frame
     void Update()
     {
-        transform.LookAt(Camera.main.transform);
+        transform.LookAt(virtualCamera.transform); // Make the name display always face the camera.
 
     }
     private void OnDestroy()

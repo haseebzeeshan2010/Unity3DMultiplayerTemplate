@@ -27,8 +27,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 204358857353426017}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.4861261, y: 0.00000003683165, z: -0.00000002048868, w: 0.87388873}
-  m_LocalPosition: {x: 0, y: 4.666667, z: -3}
+  m_LocalRotation: {x: 0.3103296, y: 0.000000017392518, z: -0.000000005677728, w: 0.95062906}
+  m_LocalPosition: {x: 0, y: 3, z: -4.3333335}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -95,7 +95,7 @@ MonoBehaviour:
     AngularDampingMode: 0
     RotationDamping: {x: 1, y: 1, z: 1}
     QuaternionDamping: 1
-  FollowOffset: {x: 0, y: 7, z: -4.5}
+  FollowOffset: {x: 0, y: 4.5, z: -6.5}
 --- !u!114 &5918361818203140721
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -276,6 +276,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   nameText: {fileID: 6533286179385553602}
   player: {fileID: 5791580462819708938}
+  virtualCamera: {fileID: 2852455260960026141}
 --- !u!1 &1093806661926670945
 GameObject:
   m_ObjectHideFlags: 0
@@ -294,7 +295,7 @@ GameObject:
   - component: {fileID: 789989045267450515}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
