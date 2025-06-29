@@ -1,11 +1,15 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
-public class Lifetime : MonoBehaviour
+namespace Utils
 {
-    [SerializeField] public int DestroyAfterSeconds = 1;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public class Lifetime : MonoBehaviour
     {
-        Destroy(gameObject, DestroyAfterSeconds);
+        [FormerlySerializedAs("DestroyAfterSeconds")] [SerializeField] public int destroyAfterSeconds = 1;
+        // Start is called once before the first execution of Update after the MonoBehaviour is created
+        void Start()
+        {
+            Destroy(gameObject, destroyAfterSeconds);
+        }
     }
 }

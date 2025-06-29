@@ -1,10 +1,13 @@
 using UnityEngine;
 
-public class Contact : MonoBehaviour
+namespace Utils
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    private void OnTriggerEnter2D(Collider2D other)
+    public class Contact : MonoBehaviour
     {
-        Destroy(gameObject);
+        // Start is called once before the first execution of Update after the MonoBehaviour is created
+        private void OnTriggerEnter2D(Collider2D other)
+        {
+            Destroy(gameObject);
+        }
     }
 }

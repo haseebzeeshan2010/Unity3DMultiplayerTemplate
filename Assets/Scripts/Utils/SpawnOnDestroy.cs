@@ -1,11 +1,14 @@
 using UnityEngine;
 
-public class SpawnOnDestroy : MonoBehaviour
+namespace Utils
 {
-    [SerializeField] private GameObject prefab;
-
-    private void OnDestroy()
+    public class SpawnOnDestroy : MonoBehaviour
     {
-        Instantiate(prefab, transform.position, Quaternion.identity);
+        [SerializeField] private GameObject prefab;
+
+        private void OnDestroy()
+        {
+            Instantiate(prefab, transform.position, Quaternion.identity);
+        }
     }
 }

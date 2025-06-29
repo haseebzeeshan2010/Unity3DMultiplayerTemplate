@@ -1,9 +1,9 @@
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
-using System.Collections.Generic;
 
-namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
+namespace Utils
 {
     [DisallowMultipleComponent]
     public class ClientMovementNetworkTransform : NetworkTransform
@@ -25,22 +25,22 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
         [SerializeField] private float maxStateAge = 1.0f;
         [SerializeField] private int velocityBufferSize = 5;
 
-        private Queue<State> stateBuffer = new Queue<State>();
-        private Queue<Vector3> velocityBuffer = new Queue<Vector3>();
-        private Vector3 smoothVelocity;
+        private readonly Queue<State> _stateBuffer = new Queue<State>();
+        private readonly Queue<Vector3> _velocityBuffer = new Queue<Vector3>();
+        private Vector3 _smoothVelocity;
 
         protected override void Awake()
         {
             base.Awake();
-            stateBuffer.Clear();
+            _stateBuffer.Clear();
             EnqueueState(transform.position, NetworkManager.Singleton.LocalTime.TimeAsFloat);
         }
 
         protected override void OnInitialize(ref NetworkTransformState state)
         {
             base.OnInitialize(ref state);
-            stateBuffer.Clear();
-            velocityBuffer.Clear();
+            _stateBuffer.Clear();
+            _velocityBuffer.Clear();
             EnqueueState(transform.position, NetworkManager.Singleton.LocalTime.TimeAsFloat);
         }
 
@@ -64,12 +64,12 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
                 EnqueueState(pos, timestamp);
 
                 double interpTime = timestamp - interpolationBackTime;
-                while (stateBuffer.Count >= 2 && stateBuffer.Peek().Timestamp < interpTime)
-                    stateBuffer.Dequeue();
-                while (stateBuffer.Count > 0 && timestamp - stateBuffer.Peek().Timestamp > maxStateAge)
-                    stateBuffer.Dequeue();
+                while (_stateBuffer.Count >= 2 && _stateBuffer.Peek().Timestamp < interpTime)
+                    _stateBuffer.Dequeue();
+                while (_stateBuffer.Count > 0 && timestamp - _stateBuffer.Peek().Timestamp > maxStateAge)
+                    _stateBuffer.Dequeue();
 
-                var arr = stateBuffer.ToArray();
+                var arr = _stateBuffer.ToArray();
                 Vector3 targetPos;
                 if (arr.Length >= 4)
                 {
@@ -102,9 +102,9 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
 
         private void EnqueueState(Vector3 pos, double timestamp)
         {
-            stateBuffer.Enqueue(new State { Position = pos, Timestamp = timestamp });
-            if (stateBuffer.Count > maxBufferSize)
-                stateBuffer.Dequeue();
+            _stateBuffer.Enqueue(new State { Position = pos, Timestamp = timestamp });
+            if (_stateBuffer.Count > maxBufferSize)
+                _stateBuffer.Dequeue();
         }
 
         private void UpdateVelocity(State a, State b)
@@ -112,17 +112,17 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
             double dt = b.Timestamp - a.Timestamp;
             if (dt <= 0) return;
             Vector3 vel = (b.Position - a.Position) / (float)dt;
-            velocityBuffer.Enqueue(vel);
-            if (velocityBuffer.Count > velocityBufferSize)
-                velocityBuffer.Dequeue();
+            _velocityBuffer.Enqueue(vel);
+            if (_velocityBuffer.Count > velocityBufferSize)
+                _velocityBuffer.Dequeue();
         }
 
         private Vector3 GetSmoothedVelocity()
         {
-            if (velocityBuffer.Count == 0) return Vector3.zero;
+            if (_velocityBuffer.Count == 0) return Vector3.zero;
             Vector3 sum = Vector3.zero;
-            foreach (var v in velocityBuffer) sum += v;
-            return sum / velocityBuffer.Count;
+            foreach (var v in _velocityBuffer) sum += v;
+            return sum / _velocityBuffer.Count;
         }
 
         private void ApplySmoothedPosition(Vector3 targetPos)
@@ -131,12 +131,12 @@ namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
             if (sqrDist > snapDistance * snapDistance)
             {
                 transform.position = targetPos;
-                smoothVelocity = Vector3.zero;
-                velocityBuffer.Clear();
+                _smoothVelocity = Vector3.zero;
+                _velocityBuffer.Clear();
             }
             else
             {
-                transform.position = Vector3.SmoothDamp(transform.position, targetPos, ref smoothVelocity, 1f / smoothingSpeed);
+                transform.position = Vector3.SmoothDamp(transform.position, targetPos, ref _smoothVelocity, 1f / smoothingSpeed);
             }
         }
 
