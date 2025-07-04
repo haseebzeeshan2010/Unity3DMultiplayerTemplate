@@ -1,3 +1,28 @@
+/*
+Function Call Roadmap:
+
+1. Initialization Flow:
+   - Awake() -> Initial setup, clears state buffer
+   - OnInitialize() -> Called when network transform initializes
+
+2. Movement Processing Flow:
+   - OnNetworkTransformStateUpdated() -> Main entry point for movement updates
+      └─> If IsOwner: ProcessOwnerMovement() -> Handles owner's movement prediction
+      └─> If !IsOwner: ProcessRemoteMovement() -> Handles remote player movement smoothing
+            ├─> PruneOldStates() -> Removes outdated position data
+            ├─> ComputeTargetPosition() -> Calculates target position using:
+            │     ├─> InterpolateUsingCatmullRom() -> For 4+ states
+            │     ├─> InterpolateLinearly() -> For 2-3 states
+            │     └─> ExtrapolateFromLastState() -> For 1 state
+            └─> ApplySmoothedPosition() -> Applies final smoothed position
+
+3. Helper Functions:
+   - AddStateSnapshot() -> Adds new position state to buffer
+   - RecordVelocity() -> Records velocity between states
+   - ComputeAverageVelocity() -> Calculates average velocity from buffer
+   - CatmullRom() -> Performs Catmull-Rom spline interpolation
+*/
+
 using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -8,7 +33,7 @@ namespace Utils
     [DisallowMultipleComponent]
     public class ClientMovementNetworkTransform : NetworkTransform
     {
-        private struct State
+        private struct TransformState
         {
             public Vector3 Position;
             public double Timestamp;
@@ -22,102 +47,120 @@ namespace Utils
 
         [Header("Buffer Settings")]
         [SerializeField] private int maxBufferSize = 40;
-        [SerializeField] private float maxStateAge = 1.0f;
+        [SerializeField] private float maxStateAge = 1f;
         [SerializeField] private int velocityBufferSize = 5;
 
-        private readonly Queue<State> _stateBuffer = new Queue<State>();
-        private readonly Queue<Vector3> _velocityBuffer = new Queue<Vector3>();
+        private readonly Queue<TransformState> _stateSnapshots = new Queue<TransformState>();
+        private readonly Queue<Vector3> _velocityBuffer  = new Queue<Vector3>();
         private Vector3 _smoothVelocity;
+
+        private double CurrentTime => NetworkManager.Singleton.LocalTime.Time;
+        private float DeltaTime   => Time.deltaTime;
 
         protected override void Awake()
         {
             base.Awake();
-            _stateBuffer.Clear();
-            EnqueueState(transform.position, NetworkManager.Singleton.LocalTime.TimeAsFloat);
+            _stateSnapshots.Clear();
+            AddStateSnapshot(transform.position, CurrentTime);
         }
 
         protected override void OnInitialize(ref NetworkTransformState state)
         {
             base.OnInitialize(ref state);
-            _stateBuffer.Clear();
+            _stateSnapshots.Clear();
             _velocityBuffer.Clear();
-            EnqueueState(transform.position, NetworkManager.Singleton.LocalTime.TimeAsFloat);
+            AddStateSnapshot(transform.position, CurrentTime);
         }
 
-        protected override void OnNetworkTransformStateUpdated(ref NetworkTransformState oldState, ref NetworkTransformState newState)
+        protected override void OnNetworkTransformStateUpdated(
+            ref NetworkTransformState oldState, ref NetworkTransformState newState)
         {
             base.OnNetworkTransformStateUpdated(ref oldState, ref newState);
-
-            if (IsOwner)
-            {
-                // Client-side prediction
-                double timestamp = NetworkManager.Singleton.LocalTime.Time;
-                Vector3 velocity = GetComponent<Rigidbody>()?.linearVelocity ?? Vector3.zero;
-                Vector3 predicted = transform.position + velocity * Time.deltaTime;
-                EnqueueState(predicted, timestamp);
-            }
-            else
-            {
-                // Reconcile with server state
-                double timestamp = NetworkManager.Singleton.LocalTime.Time;
-                Vector3 pos = newState.GetPosition(); // correct API :contentReference[oaicite:1]{index=1}
-                EnqueueState(pos, timestamp);
-
-                double interpTime = timestamp - interpolationBackTime;
-                while (_stateBuffer.Count >= 2 && _stateBuffer.Peek().Timestamp < interpTime)
-                    _stateBuffer.Dequeue();
-                while (_stateBuffer.Count > 0 && timestamp - _stateBuffer.Peek().Timestamp > maxStateAge)
-                    _stateBuffer.Dequeue();
-
-                var arr = _stateBuffer.ToArray();
-                Vector3 targetPos;
-                if (arr.Length >= 4)
-                {
-                    var p0 = arr[0]; var p1 = arr[1]; var p2 = arr[2]; var p3 = arr[3];
-                    float t = Mathf.InverseLerp((float)p1.Timestamp, (float)p2.Timestamp, (float)interpTime);
-                    targetPos = CatmullRom(p0.Position, p1.Position, p2.Position, p3.Position, t);
-                    UpdateVelocity(p1, p2);
-                }
-                else if (arr.Length >= 2)
-                {
-                    var older = arr[0]; var newer = arr[1];
-                    float t = Mathf.InverseLerp((float)older.Timestamp, (float)newer.Timestamp, (float)interpTime);
-                    targetPos = Vector3.Lerp(older.Position, newer.Position, t);
-                    UpdateVelocity(older, newer);
-                }
-                else if (arr.Length == 1)
-                {
-                    var last = arr[0];
-                    double delta = Mathf.Min(interpolationBackTime, (float)(interpTime - last.Timestamp));
-                    targetPos = last.Position + GetSmoothedVelocity() * (float)delta * extrapolationMultiplier;
-                }
-                else
-                {
-                    targetPos = transform.position + GetSmoothedVelocity() * Time.deltaTime * extrapolationMultiplier;
-                }
-
-                ApplySmoothedPosition(targetPos);
-            }
+            if (IsOwner) ProcessOwnerMovement();
+            else        ProcessRemoteMovement(newState);
         }
 
-        private void EnqueueState(Vector3 pos, double timestamp)
+        private void ProcessOwnerMovement()
         {
-            _stateBuffer.Enqueue(new State { Position = pos, Timestamp = timestamp });
-            if (_stateBuffer.Count > maxBufferSize)
-                _stateBuffer.Dequeue();
+            var rb       = GetComponent<Rigidbody>();
+            Vector3 vel  = rb != null ? rb.linearVelocity : Vector3.zero;
+            Vector3 pred = transform.position + vel * DeltaTime;
+            AddStateSnapshot(pred, CurrentTime);
         }
 
-        private void UpdateVelocity(State a, State b)
+        private void ProcessRemoteMovement(NetworkTransformState state)
         {
-            double dt = b.Timestamp - a.Timestamp;
+            double interpTime = CurrentTime - interpolationBackTime;
+            AddStateSnapshot(state.GetPosition(), CurrentTime);
+            PruneOldStates(interpTime);
+
+            Vector3 target = ComputeTargetPosition(interpTime);
+            ApplySmoothedPosition(target);
+        }
+
+        private void PruneOldStates(double cutoffTime)
+        {
+            while (_stateSnapshots.Count >= 2 && _stateSnapshots.Peek().Timestamp < cutoffTime)
+                _stateSnapshots.Dequeue();
+
+            while (_stateSnapshots.Count > 0 &&
+                   CurrentTime - _stateSnapshots.Peek().Timestamp > maxStateAge)
+                _stateSnapshots.Dequeue();
+        }
+
+        private Vector3 ComputeTargetPosition(double interpTime)
+        {
+            var states = _stateSnapshots.ToArray();
+            if (states.Length >= 4) return InterpolateUsingCatmullRom(states, interpTime);
+            if (states.Length >= 2) return InterpolateLinearly(states, interpTime);
+            if (states.Length == 1) return ExtrapolateFromLastState(states[0], interpTime);
+
+            return transform.position
+                 + ComputeAverageVelocity() * DeltaTime * extrapolationMultiplier;
+        }
+
+        private Vector3 InterpolateUsingCatmullRom(TransformState[] s, double t)
+        {
+            float u = Mathf.InverseLerp((float)s[1].Timestamp, (float)s[2].Timestamp, (float)t);
+            RecordVelocity(s[1], s[2]);
+            return CatmullRom(
+                s[0].Position, s[1].Position, s[2].Position, s[3].Position, u
+            );
+        }
+
+        private Vector3 InterpolateLinearly(TransformState[] s, double t)
+        {
+            float u = Mathf.InverseLerp((float)s[0].Timestamp, (float)s[1].Timestamp, (float)t);
+            RecordVelocity(s[0], s[1]);
+            return Vector3.Lerp(s[0].Position, s[1].Position, u);
+        }
+
+        private Vector3 ExtrapolateFromLastState(TransformState last, double t)
+        {
+            double delta = Mathf.Min(interpolationBackTime, (float)(t - last.Timestamp));
+            return last.Position
+                 + ComputeAverageVelocity() * (float)delta * extrapolationMultiplier;
+        }
+
+        private void AddStateSnapshot(Vector3 pos, double time)
+        {
+            _stateSnapshots.Enqueue(new TransformState { Position = pos, Timestamp = time });
+            if (_stateSnapshots.Count > maxBufferSize)
+                _stateSnapshots.Dequeue();
+        }
+
+        private void RecordVelocity(TransformState older, TransformState newer)
+        {
+            double dt = newer.Timestamp - older.Timestamp;
             if (dt <= 0) return;
-            Vector3 vel = (b.Position - a.Position) / (float)dt;
+
+            Vector3 vel = (newer.Position - older.Position) / (float)dt;
             _velocityBuffer.Enqueue(vel);
             if (_velocityBuffer.Count > velocityBufferSize)
                 _velocityBuffer.Dequeue();
         }
 
-        private Vector3 GetSmoothedVelocity()
+        private Vector3 ComputeAverageVelocity()
         {
             if (_velocityBuffer.Count == 0) return Vector3.zero;
             Vector3 sum = Vector3.zero;
@@ -125,22 +168,30 @@ namespace Utils
             return sum / _velocityBuffer.Count;
         }
 
-        private void ApplySmoothedPosition(Vector3 targetPos)
+        private void ApplySmoothedPosition(Vector3 target)
         {
-            float sqrDist = (transform.position - targetPos).sqrMagnitude;
-            if (sqrDist > snapDistance * snapDistance)
+            float snapSq  = snapDistance * snapDistance;
+            float sqrDist = (transform.position - target).sqrMagnitude;
+
+            if (sqrDist > snapSq)
             {
-                transform.position = targetPos;
-                _smoothVelocity = Vector3.zero;
+                transform.position = target;
+                _smoothVelocity    = Vector3.zero;
                 _velocityBuffer.Clear();
             }
             else
             {
-                transform.position = Vector3.SmoothDamp(transform.position, targetPos, ref _smoothVelocity, 1f / smoothingSpeed);
+                transform.position = Vector3.SmoothDamp(
+                    transform.position,
+                    target,
+                    ref _smoothVelocity,
+                    1f / smoothingSpeed
+                );
             }
         }
 
-        private Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+        private Vector3 CatmullRom(
+            Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
         {
             return 0.5f * (
                 2f * p1 +
@@ -150,15 +201,13 @@ namespace Utils
             );
         }
 
-        protected override bool OnIsServerAuthoritative() => false; // client authority
-
+        protected override bool OnIsServerAuthoritative() => false;
     }
 }
 
 
 
-
-//Code below is for simple smoothing
+//The code below is for simple smoothing
 
 
 // using Unity.Netcode.Components;
@@ -168,7 +217,7 @@ namespace Utils
 // namespace Unity.Multiplayer.Samples.Utilities.ClientAuthority
 // {
 //     [DisallowMultipleComponent]
-//     public class ClientMovementNetworkTransform : NetworkTransform
+//     public class ClientMovementNetworkTransform: NetworkTransform
 //     {
 //         private struct State
 //         {
@@ -178,7 +227,7 @@ namespace Utils
 //         }
 
 //         private Queue<State> stateBuffer = new Queue<State>();
-//         private const float interpolationBackTime = 0.2f; // 200ms buffer for bad networks
+//         private const float interpolationBackTime = 0.2f; // 200 ms buffer for bad networks
 //         private const int maxBufferSize = 20;
 
 //         private Vector3 velocity; // For extrapolation
@@ -192,7 +241,7 @@ namespace Utils
 
 //         private void Update()
 //         {
-//             if (!IsOwner) // use (!IsOwner && !IsServer) if you want to allow host to use smoothing for remote objects it does not own
+//             if (!IsOwner) // use (!IsOwner && !IsServer) if you want to allow host to use smoothing for remote objects, it does not own
 //             {
 //                 float interpTime = Time.time - interpolationBackTime;
 
