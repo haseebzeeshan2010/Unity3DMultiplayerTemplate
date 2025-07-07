@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Timers;
 using Unity.Netcode;
 using UnityEngine;
 using TMPro;
@@ -7,6 +8,10 @@ public class NetworkTimer : NetworkBehaviour
 {
     [SerializeField] private float timerDuration = 120f; // Default duration
     [SerializeField] private TextMeshProUGUI timerText; // Assign in inspector
+    [SerializeField] private GameObject ClientTextObject; // Assign in inspector
+    [SerializeField] private GameObject TimerStartButton;
+    
+    [SerializeField] private GameObject TimerVisibility;
 
     private readonly NetworkVariable<double> _endTime = new NetworkVariable<double>(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -19,19 +24,27 @@ public class NetworkTimer : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        if (IsClient)
+        
+        if (IsClient && !IsHost)
         {
-            // Initially hide the timer text
-            timerText.gameObject.SetActive(false);
+            TimerVisibility.SetActive(false);
+            ClientTextObject.SetActive(true);
+            TimerStartButton.SetActive(false);
         }
+        
+        _isTimerRunning.OnValueChanged += (prevValue, newValue) => {
+            if(newValue)
+            {
+                ClientTextObject.SetActive(false);
+                TimerVisibility.SetActive(true);
+            }
+        };
     }
 
     void Update()
     {
         if (!IsClient) return;
-
-        // Show/hide timer text based on timer state
-        timerText.gameObject.SetActive(_isTimerRunning.Value);
+        
 
         double remaining = _endTime.Value - NetworkManager.ServerTime.Time;
 

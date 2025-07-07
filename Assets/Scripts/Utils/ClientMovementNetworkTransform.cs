@@ -1,26 +1,32 @@
 /*
-Function Call Roadmap:
+ClientMovementNetworkTransform Call Flow Overview:
 
-1. Initialization Flow:
-   - Awake() -> Initial setup, clears state buffer
-   - OnInitialize() -> Called when network transform initializes
+1. Initialization
+    - Awake()
+    - OnInitialize()
+      → Both clear state/velocity buffers and add the initial transform snapshot.
 
-2. Movement Processing Flow:
-   - OnNetworkTransformStateUpdated() -> Main entry point for movement updates
-      └─> If IsOwner: ProcessOwnerMovement() -> Handles owner's movement prediction
-      └─> If !IsOwner: ProcessRemoteMovement() -> Handles remote player movement smoothing
-            ├─> PruneOldStates() -> Removes outdated position data
-            ├─> ComputeTargetPosition() -> Calculates target position using:
-            │     ├─> InterpolateUsingCatmullRom() -> For 4+ states
-            │     ├─> InterpolateLinearly() -> For 2-3 states
-            │     └─> ExtrapolateFromLastState() -> For 1 state
-            └─> ApplySmoothedPosition() -> Applies final smoothed position
+2. Network State Updates
+    - OnNetworkTransformStateUpdated()
+      ├─ If IsOwner:
+      │     → ProcessOwnerMovement()
+      │         → Predicts local movement and records a new snapshot.
+      └─ Else:
+              → ProcessRemoteMovement()
+                    → AddStateSnapshot()         // Add received network state
+                    → PruneOldStates()           // Remove outdated snapshots
+                    → ComputeTargetPosition()    // Choose target position:
+                         ├─ InterpolateUsingCatmullRom() // 4+ states
+                         ├─ InterpolateLinearly()        // 2-3 states
+                         └─ ExtrapolateFromLastState()   // 1 state
+                    → ApplySmoothedPosition()    // Smoothly move towards target
 
-3. Helper Functions:
-   - AddStateSnapshot() -> Adds new position state to buffer
-   - RecordVelocity() -> Records velocity between states
-   - ComputeAverageVelocity() -> Calculates average velocity from buffer
-   - CatmullRom() -> Performs Catmull-Rom spline interpolation
+3. Helper Methods
+    - AddStateSnapshot()         // Add new position/timestamp to buffer
+    - PruneOldStates()           // Remove old states from buffer
+    - RecordVelocity()           // Store velocity between states
+    - ComputeAverageVelocity()   // Average recent velocities
+    - CatmullRom()               // Catmull-Rom spline interpolation
 */
 
 using System.Collections.Generic;

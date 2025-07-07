@@ -4,7 +4,7 @@ public class ClientSingleton : MonoBehaviour
 {
     private static ClientSingleton instance;
 
-    public ClientGameManager GameManager {get; private set;}
+    public ClientGameManager GameManager { get; private set; }
     public static ClientSingleton Instance
     {
         get
@@ -28,14 +28,43 @@ public class ClientSingleton : MonoBehaviour
 
     public async Task<bool> CreateClient()
     {
+        if (GameManager != null)
+        {
+            Debug.LogWarning("GameManager already exists. Disposing previous instance.");
+            GameManager.Dispose();
+        }
         GameManager = new ClientGameManager();
-
-        return await GameManager.InitAsync();
+        bool result = false;
+        try
+        {
+            result = await GameManager.InitAsync();
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Exception during client initialization: {ex}");
+            GameManager.Dispose();
+            GameManager = null;
+            return false;
+        }
+        if (!result)
+        {
+            Debug.LogWarning("ClientGameManager initialization failed.");
+            GameManager.Dispose();
+            GameManager = null;
+        }
+        return result;
     }
 
     private void OnDestroy()
     {
-        GameManager?.Dispose();
+        if (GameManager != null)
+        {
+            GameManager.Dispose();
+            GameManager = null;
+        }
+        if (instance == this)
+        {
+            instance = null;
+        }
     }
-
 }
