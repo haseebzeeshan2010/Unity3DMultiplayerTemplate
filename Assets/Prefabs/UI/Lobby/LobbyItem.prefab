@@ -417,6 +417,7 @@ GameObject:
   - component: {fileID: 4413955064703153393}
   - component: {fileID: 1928762235204079694}
   - component: {fileID: 2076745691485370147}
+  - component: {fileID: 3902823148002988470}
   m_Layer: 0
   m_Name: LobbyItem
   m_TagString: Untagged
@@ -498,6 +499,73 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   lobbyNameText: {fileID: 393650513084373144}
   LobbyPlayersText: {fileID: 5721811749833362937}
+--- !u!114 &3902823148002988470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6696606259676243712}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68b727a854615134dbc393275ce13894, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  slideInDirection: 2
+  slideInDuration: 0.5
+  slideInDelay: 0
+  slideInCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  slideOutDirection: 2
+  slideOutDuration: 0.5
+  slideOutDelay: 0
+  slideOutCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  playOnStart: 1
 --- !u!1 &6801979926008906975
 GameObject:
   m_ObjectHideFlags: 0

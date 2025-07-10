@@ -36,10 +36,21 @@ public class Player : NetworkBehaviour
         TagStatus.OnValueChanged += OnTagStatusChanged;
     }
 
-    public override void OnDestroy()
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
+        {
+            UserData userData = HostSingleton.Instance.GameManager.NetworkServer.GetUserDataByClientId(OwnerClientId);
+            PlayerName.Value = userData.username;
+            OnPlayerSpawned?.Invoke(this);
+        }
+        TagBlock.SetActive(TagStatus.Value == TagState.Tagged);
+    }
+
+    public override void OnNetworkDespawn()
     {
         TagStatus.OnValueChanged -= OnTagStatusChanged;
-        base.OnDestroy();
+        OnPlayerDespawned?.Invoke(this);
     }
 
     private void OnTagStatusChanged(TagState previous, TagState current)
@@ -47,12 +58,7 @@ public class Player : NetworkBehaviour
         TagBlock.SetActive(current == TagState.Tagged);
     }
 
-    void Start()
-    {
-        TagBlock.SetActive(TagStatus.Value == TagState.Tagged);
-    }
-
-    void Update()
+    private void Update()
     {
         if (!IsServer)
             return;
@@ -68,55 +74,21 @@ public class Player : NetworkBehaviour
         }
     }
 
-    public override void OnNetworkSpawn()
-    {
-        if (IsServer)
-        {
-            UserData userData = HostSingleton.Instance.GameManager.NetworkServer.GetUserDataByClientId(OwnerClientId);
-            PlayerName.Value = userData.username;
-            OnPlayerSpawned?.Invoke(this);
-        }
-    }
-
-    public override void OnNetworkDespawn()
-    {
-        OnPlayerDespawned?.Invoke(this);
-    }
-
+    // Server-authoritative tag transfer
     private void OnTriggerEnter(Collider other)
     {
-        if (!IsOwner) return;
+        if (!IsServer) return;
 
-        if (other.attachedRigidbody != null && other.attachedRigidbody.TryGetComponent<Player>(out Player player))
+        if (other.attachedRigidbody != null && other.attachedRigidbody.TryGetComponent<Player>(out Player otherPlayer))
         {
-            if (player == this) return;
+            if (otherPlayer == this) return;
 
-            if (TagStatus.Value != TagState.Tagged && player.TagStatus.Value == TagState.Tagged)
+            // Only allow transfer if this player is taggable and the other is tagged
+            if (TagStatus.Value == TagState.Taggable && otherPlayer.TagStatus.Value == TagState.Tagged)
             {
-                RequestTagTransferServerRpc(player.NetworkObjectId, NetworkObjectId);
+                otherPlayer.TagStatus.Value = TagState.None; // Start cooldown for previous tagger
+                TagStatus.Value = TagState.Tagged;
             }
         }
-    }
-
-    [ServerRpc]
-    private void RequestTagTransferServerRpc(ulong fromPlayerId, ulong toPlayerId)
-    {
-        Player fromPlayer = FindPlayerByNetworkObjectId(fromPlayerId);
-        Player toPlayer = FindPlayerByNetworkObjectId(toPlayerId);
-
-        if (fromPlayer != null && toPlayer != null && fromPlayer.TagStatus.Value == TagState.Tagged && toPlayer.TagStatus.Value == TagState.Taggable)
-        {
-            fromPlayer.TagStatus.Value = TagState.None;
-            toPlayer.TagStatus.Value = TagState.Tagged;
-        }
-    }
-
-    private Player FindPlayerByNetworkObjectId(ulong networkObjectId)
-    {
-        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out var networkObject))
-        {
-            return networkObject.GetComponent<Player>();
-        }
-        return null;
     }
 }

@@ -1,5 +1,9 @@
 using UnityEngine;
 
+/// <summary>
+/// Handles smoothly rotating the player character to face their movement direction.
+/// Intended for use in both local and networked player contexts.
+/// </summary>
 public class DirectionalTurn : MonoBehaviour
 {
     // Minimum speed to update rotation (to avoid jitter at very low speeds)
@@ -7,14 +11,6 @@ public class DirectionalTurn : MonoBehaviour
 
     [SerializeField] private PlayerMovement playerMovement;
 
-    // private Animator animator;
-    // private int VelocityHash;
-    // private void Start()
-    // {
-    //     animator = GetComponent<Animator>();
-
-    //     VelocityHash = Animator.StringToHash("Velocity"); // makes it more efficient
-    // }
     void Update()
     {
         if (playerMovement.MovementDirection.sqrMagnitude > minSpeed * minSpeed)
@@ -22,11 +18,6 @@ public class DirectionalTurn : MonoBehaviour
             Quaternion targetRotation = Quaternion.LookRotation(playerMovement.MovementDirection);
             transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
         }
-
-
-
-        // animator.SetFloat(VelocityHash, playerMovement.MovementSpeed);
-
     }
 
 }
