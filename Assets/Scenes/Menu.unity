@@ -2200,7 +2200,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 727373092}
   m_HandleRect: {fileID: 727373091}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -2705,7 +2705,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  playOnStart: 1
+  playOnStart: 0
+  startOffScreen: 1
 --- !u!1 &2104698185
 GameObject:
   m_ObjectHideFlags: 0

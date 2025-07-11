@@ -49,13 +49,6 @@ Use NetworkVariable, RPC, or NetworkTransform consistently, with explicit author
 
 Use new NGO constructs for interpolation and batching (via RpcBatcher) where appropriate
 
-📝 Response Format Template
-1. Reasoning / chain-of-thought  
-2. Few-shot example(s)  
-3. Design breakdown (feature by feature)  
-4. Final code snippet(s), with in-line comments  
-5. Explanation of each line/block  
-6. Self-check & reflection summary  
 
 Please adhere strictly to Unity 6 + NGO 2.4.1 APIs, sequences, and best practices. Always begin with “Let’s think step by step…” then proceed.
 

@@ -1,17 +1,17 @@
-using System.Globalization;
-using System.Timers;
 using Unity.Netcode;
 using UnityEngine;
 using TMPro;
 
 public class NetworkTimer : NetworkBehaviour
 {
-    [SerializeField] private float timerDuration = 120f; // Default duration
-    [SerializeField] private TextMeshProUGUI timerText; // Assign in inspector
-    [SerializeField] private GameObject ClientTextObject; // Assign in inspector
-    [SerializeField] private GameObject TimerStartButton;
-    
-    [SerializeField] private GameObject TimerVisibility;
+    [SerializeField] private float timerDuration = 120f; // Main timer duration
+    [SerializeField] private float countdownDuration = 3f; // Countdown period before timer starts
+
+    [SerializeField] private TextMeshProUGUI timerText;      // Main timer UI text
+    [SerializeField] private TextMeshProUGUI countdownText;  // Countdown UI text
+    [SerializeField] private GameObject ClientTextObject;    // Additional client-only UI
+    [SerializeField] private GameObject TimerStartButton;    // UI button for host to start timer
+    [SerializeField] private GameObject TimerVisibility;     // Container for timer UI
 
     private readonly NetworkVariable<double> _endTime = new NetworkVariable<double>(
         0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
@@ -32,51 +32,71 @@ public class NetworkTimer : NetworkBehaviour
             TimerStartButton.SetActive(false);
         }
         
-        _isTimerRunning.OnValueChanged += (prevValue, newValue) => {
-            if(newValue)
+        _isTimerRunning.OnValueChanged += (prevValue, newValue) =>
+        {
+            if (newValue)
             {
                 ClientTextObject.SetActive(false);
                 TimerVisibility.SetActive(true);
             }
         };
+
+        // At start, hide both UI elements
+        timerText.gameObject.SetActive(false);
+        countdownText.gameObject.SetActive(false);
     }
 
     void Update()
     {
         if (!IsClient) return;
         
-
+        if (!_isTimerRunning.Value) return;
+        
         double remaining = _endTime.Value - NetworkManager.ServerTime.Time;
 
-        if (remaining > 0 && _isTimerRunning.Value)
+        // Countdown phase: remaining time is greater than timerDuration.
+        if (remaining > timerDuration)
+        {
+            int countdownSeconds = Mathf.CeilToInt((float)(remaining - timerDuration));
+            countdownText.text = $"{countdownSeconds}";
+            countdownText.gameObject.SetActive(true);
+            timerText.gameObject.SetActive(false);
+            _hasEndedLocally = false;
+            return;
+        }
+        else // Main timer phase
         {
             int minutes = Mathf.FloorToInt((float)remaining / 60);
             int seconds = Mathf.FloorToInt((float)remaining % 60);
             timerText.text = $"{minutes:0}:{seconds:00}";
-            _hasEndedLocally = false; // Reset if timer is still running
+            timerText.gameObject.SetActive(true);
+            countdownText.gameObject.SetActive(false);
+            _hasEndedLocally = false;
         }
-        else if (_isTimerRunning.Value && !_hasEndedLocally)
+        
+        // When timer ends, make sure to trigger end logic only once.
+        if (remaining <= 0 && _isTimerRunning.Value && !_hasEndedLocally)
         {
             timerText.text = "0:00";
             _hasEndedLocally = true;
             OnTimerEnded();
         }
     }
-
-
+    
     // Call this from UI (host only)
     public void StartTimerFromUI()
     {
         if (IsHost)
         {
-            StartTimerServerRpc(timerDuration);
+            // Total duration includes the countdown period.
+            StartTimerServerRpc(timerDuration + countdownDuration);
         }
     }
 
     [ServerRpc(RequireOwnership = false)]
-    private void StartTimerServerRpc(float duration)
+    private void StartTimerServerRpc(float totalDuration)
     {
-        _endTime.Value = NetworkManager.ServerTime.Time + duration;
+        _endTime.Value = NetworkManager.ServerTime.Time + totalDuration;
         _isTimerRunning.Value = true;
     }
 
@@ -86,8 +106,6 @@ public class NetworkTimer : NetworkBehaviour
         {
             _isTimerRunning.Value = false;
         }
-        // Add any client-side logic for when the timer ends
-        
-        
+        // Add any client-side end-of-timer logic here.
     }
 }

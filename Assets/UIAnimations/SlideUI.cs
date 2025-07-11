@@ -35,6 +35,10 @@ public class SlideUI : MonoBehaviour
     [Tooltip("If true, animation plays automatically on Start.")]
     [SerializeField] private bool playOnStart = true;
 
+    [Header("Optional: Start Off-Screen")]
+    [Tooltip("If true, UI element starts at the off-screen position (according to slide-in direction).")]
+    [SerializeField] private bool startOffScreen = false;
+
     private RectTransform rectTransform;
     private Vector2 originalAnchoredPosition;
 
@@ -48,6 +52,16 @@ public class SlideUI : MonoBehaviour
             return;
         }
         originalAnchoredPosition = rectTransform.anchoredPosition;
+
+        // If toggled, set to off-screen position at startup
+        if (startOffScreen && rectTransform.parent != null)
+        {
+            RectTransform parentRect = rectTransform.parent as RectTransform;
+            if (parentRect != null)
+            {
+                rectTransform.anchoredPosition = GetOffScreenPosition(parentRect, slideInDirection);
+            }
+        }
     }
 
     void Start()
@@ -74,8 +88,9 @@ public class SlideUI : MonoBehaviour
         // Calculate off-screen start position based on slide-in direction
         Vector2 startPos = GetOffScreenPosition(parentRect, slideInDirection);
 
-        // Set initial position
-        rectTransform.anchoredPosition = startPos;
+        // Set initial position only if not already off-screen (prevents jump if already set)
+        if (!startOffScreen)
+            rectTransform.anchoredPosition = startPos;
 
         // Kill any running tweens on this rectTransform
         rectTransform.DOKill();
