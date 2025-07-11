@@ -9,6 +9,7 @@ public class NetworkTimer : NetworkBehaviour
 
     [SerializeField] private TextMeshProUGUI timerText;      // Main timer UI text
     [SerializeField] private TextMeshProUGUI countdownText;  // Countdown UI text
+    [SerializeField] private GameObject goText;
     [SerializeField] private GameObject ClientTextObject;    // Additional client-only UI
     [SerializeField] private GameObject TimerStartButton;    // UI button for host to start timer
     [SerializeField] private GameObject TimerVisibility;     // Container for timer UI
@@ -24,14 +25,14 @@ public class NetworkTimer : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        
+
         if (IsClient && !IsHost)
         {
             TimerVisibility.SetActive(false);
             ClientTextObject.SetActive(true);
             TimerStartButton.SetActive(false);
         }
-        
+
         _isTimerRunning.OnValueChanged += (prevValue, newValue) =>
         {
             if (newValue)
@@ -49,9 +50,9 @@ public class NetworkTimer : NetworkBehaviour
     void Update()
     {
         if (!IsClient) return;
-        
+
         if (!_isTimerRunning.Value) return;
-        
+
         double remaining = _endTime.Value - NetworkManager.ServerTime.Time;
 
         // Countdown phase: remaining time is greater than timerDuration.
@@ -61,11 +62,14 @@ public class NetworkTimer : NetworkBehaviour
             countdownText.text = $"{countdownSeconds}";
             countdownText.gameObject.SetActive(true);
             timerText.gameObject.SetActive(false);
+
             _hasEndedLocally = false;
             return;
         }
         else // Main timer phase
         {
+            goText.SetActive(true);
+            ClientTextObject.SetActive(false);
             int minutes = Mathf.FloorToInt((float)remaining / 60);
             int seconds = Mathf.FloorToInt((float)remaining % 60);
             timerText.text = $"{minutes:0}:{seconds:00}";
@@ -73,7 +77,7 @@ public class NetworkTimer : NetworkBehaviour
             countdownText.gameObject.SetActive(false);
             _hasEndedLocally = false;
         }
-        
+
         // When timer ends, make sure to trigger end logic only once.
         if (remaining <= 0 && _isTimerRunning.Value && !_hasEndedLocally)
         {
@@ -82,7 +86,7 @@ public class NetworkTimer : NetworkBehaviour
             OnTimerEnded();
         }
     }
-    
+
     // Call this from UI (host only)
     public void StartTimerFromUI()
     {
