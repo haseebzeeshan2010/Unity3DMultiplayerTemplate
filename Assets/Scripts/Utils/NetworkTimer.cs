@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 using TMPro;
@@ -21,6 +22,10 @@ public class NetworkTimer : NetworkBehaviour
         false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private bool _hasEndedLocally = false;
+    private bool _hasTriggeredCountdown = false; // Guard flag to fire the event once
+
+    // This event is raised when the countdown starts.
+    public static event Action CountdownBegan;
 
     public override void OnNetworkSpawn()
     {
@@ -50,7 +55,6 @@ public class NetworkTimer : NetworkBehaviour
     void Update()
     {
         if (!IsClient) return;
-
         if (!_isTimerRunning.Value) return;
 
         double remaining = _endTime.Value - NetworkManager.ServerTime.Time;
@@ -58,11 +62,17 @@ public class NetworkTimer : NetworkBehaviour
         // Countdown phase: remaining time is greater than timerDuration.
         if (remaining > timerDuration)
         {
+            // Fire event only once when countdown starts.
+            if (!_hasTriggeredCountdown)
+            {
+                _hasTriggeredCountdown = true;
+                CountdownBegan?.Invoke();
+            }
+
             int countdownSeconds = Mathf.CeilToInt((float)(remaining - timerDuration));
             countdownText.text = $"{countdownSeconds}";
             countdownText.gameObject.SetActive(true);
             timerText.gameObject.SetActive(false);
-
             _hasEndedLocally = false;
             return;
         }
@@ -78,7 +88,7 @@ public class NetworkTimer : NetworkBehaviour
             _hasEndedLocally = false;
         }
 
-        // When timer ends, make sure to trigger end logic only once.
+        // End logic
         if (remaining <= 0 && _isTimerRunning.Value && !_hasEndedLocally)
         {
             timerText.text = "0:00";
