@@ -29,42 +29,87 @@ public class HostGameManager : IDisposable
     /// <returns>A Task representing the asynchronous operation.</returns>
     public async Task StartHostAsync()
     {
-        // Relay allocation
-        try
+        // First, verify Unity Services are connected and user is signed in.
+        if (!AuthenticationService.Instance.IsSignedIn)
         {
-            allocation = await RelayService.Instance.CreateAllocationAsync(MaxConnections);
+            Debug.LogError("Cannot create Relay allocation: User is not signed in to Unity Services.");
+            return;
         }
-        catch (Exception e)
+        if (!await VerifyUnityServicesConnectivity())
         {
-            Debug.LogError($"Relay allocation failed: {e}");
+            Debug.LogError("Unity Services connectivity test failed.");
             return;
         }
 
-        // Join code
-        try
+        // Relay allocation with retry mechanism.
+        const int maxRetries = 3;
+        int retryCount = 0;
+        bool allocationSuccess = false;
+        while (!allocationSuccess && retryCount < maxRetries)
         {
-            joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
-            Debug.Log($"Join code: {joinCode}");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Failed to get join code: {e}");
-            return;
+            try
+            {
+                if (retryCount > 0)
+                {
+                    Debug.Log($"Retrying Relay allocation ({retryCount}/{maxRetries})...");
+                    await Task.Delay(1000 * retryCount); // Exponential backoff.
+                }
+                allocation = await RelayService.Instance.CreateAllocationAsync(MaxConnections);
+                allocationSuccess = true;
+            }
+            catch (Exception e)
+            {
+                retryCount++;
+                Debug.LogWarning($"Relay allocation attempt {retryCount} failed: {e.Message}");
+                if (retryCount >= maxRetries)
+                {
+                    Debug.LogError($"Relay allocation failed after {maxRetries} attempts: {e}");
+                    return;
+                }
+            }
         }
 
+        // Get join code with a retry mechanism.
+        retryCount = 0;
+        bool joinCodeSuccess = false;
+        while (!joinCodeSuccess && retryCount < maxRetries)
+        {
+            try
+            {
+                if (retryCount > 0)
+                {
+                    await Task.Delay(1000 * retryCount);
+                }
+                joinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+                Debug.Log($"Join code: {joinCode}");
+                joinCodeSuccess = true;
+            }
+            catch (Exception e)
+            {
+                retryCount++;
+                Debug.LogWarning($"Join code attempt {retryCount} failed: {e.Message}");
+                if (retryCount >= maxRetries)
+                {
+                    Debug.LogError($"Failed to get join code after {maxRetries} attempts: {e}");
+                    return;
+                }
+            }
+        }
+
+        // Ensure that the singleton NetworkManager exists.
         if (NetworkManager.Singleton == null)
         {
             Debug.LogError("NetworkManager.Singleton is null.");
             return;
         }
 
+        // Setup Relay in UnityTransport.
         UnityTransport transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
         if (transport == null)
         {
             Debug.LogError("UnityTransport component not found on NetworkManager.");
             return;
         }
-
         RelayServerData relayServerData;
         try
         {
@@ -77,7 +122,7 @@ public class HostGameManager : IDisposable
         }
         transport.SetRelayServerData(relayServerData);
 
-        // Lobby creation
+        // Lobby creation.
         string playerName = PlayerPrefs.GetString(NameSelector.PlayerNameKey, "Host");
         try
         {
@@ -117,14 +162,14 @@ public class HostGameManager : IDisposable
             return;
         }
 
-        // Dispose previous server if exists
+        // Dispose previous server if it exists.
         if (NetworkServer != null)
         {
             NetworkServer.Dispose();
         }
-
         NetworkServer = new NetworkServer(NetworkManager.Singleton);
 
+        // Setup connection payload.
         string playerId = AuthenticationService.Instance?.PlayerId;
         if (string.IsNullOrEmpty(playerId))
         {
@@ -158,6 +203,7 @@ public class HostGameManager : IDisposable
         }
         NetworkManager.Singleton.NetworkConfig.ConnectionData = payloadBytes;
 
+        // Start the host.
         try
         {
             NetworkManager.Singleton.StartHost();
@@ -168,8 +214,10 @@ public class HostGameManager : IDisposable
             return;
         }
 
+        // Register client left handler.
         NetworkServer.OnClientLeft += async (authId) => await HandleClientLeft(authId);
 
+        // Load the game scene.
         try
         {
             NetworkManager.Singleton.SceneManager.LoadScene(GameSceneName, LoadSceneMode.Single);
@@ -180,6 +228,11 @@ public class HostGameManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Heartbeat coroutine to keep the lobby alive.
+    /// </summary>
+    /// <param name="waitTimeSeconds">Wait time in seconds between heartbeat pings.</param>
+    /// <returns>An IEnumerator for the coroutine.</returns>
     private IEnumerator HeartbeatLobby(float waitTimeSeconds)
     {
         WaitForSecondsRealtime delay = new WaitForSecondsRealtime(waitTimeSeconds);
@@ -199,6 +252,31 @@ public class HostGameManager : IDisposable
     }
 
     /// <summary>
+    /// Verifies Unity Services connectivity.
+    /// </summary>
+    /// <returns>True if connected properly; otherwise, false.</returns>
+    private Task<bool> VerifyUnityServicesConnectivity()
+    {
+        try
+        {
+            // Example connectivity check: verifying that the PlayerId exists.
+            string playerId = AuthenticationService.Instance.PlayerId;
+            if (string.IsNullOrEmpty(playerId))
+            {
+                Debug.LogWarning("PlayerId is null or empty, services may not be properly initialized.");
+                return Task.FromResult(false);
+            }
+            // Additional checks can be inserted here as needed.
+            return Task.FromResult(true);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Unity Services connectivity test failed: {ex.Message}");
+            return Task.FromResult(false);
+        }
+    }
+
+    /// <summary>
     /// Releases all resources used by the HostGameManager.
     /// </summary>
     public void Dispose()
@@ -206,6 +284,9 @@ public class HostGameManager : IDisposable
         Shutdown();
     }
 
+    /// <summary>
+    /// Shuts down the host by stopping heartbeat, deleting the lobby, and disposing the server.
+    /// </summary>
     public async void Shutdown()
     {
         if (heartbeatCoroutine != null && HostSingleton.Instance != null)
@@ -235,6 +316,11 @@ public class HostGameManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Handles when a client leaves by attempting to remove them from the lobby.
+    /// </summary>
+    /// <param name="authId">The authentication ID of the client that left.</param>
+    /// <returns>A Task representing the asynchronous operation.</returns>
     private async Task HandleClientLeft(string authId)
     {
         if (!string.IsNullOrEmpty(lobbyId))
@@ -250,4 +336,3 @@ public class HostGameManager : IDisposable
         }
     }
 }
-

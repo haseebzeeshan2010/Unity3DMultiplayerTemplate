@@ -293,6 +293,7 @@ GameObject:
   - component: {fileID: 1576327880018846443}
   - component: {fileID: 2588984231595168695}
   - component: {fileID: 789989045267450515}
+  - component: {fileID: 5256991860946724292}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -534,6 +535,20 @@ MonoBehaviour:
   maxBufferSize: 40
   maxStateAge: 1
   velocityBufferSize: 5
+--- !u!114 &5256991860946724292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1093806661926670945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b988fff27d87ad14d9fa47dfd21205aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  enableDebugLogs: 1
 --- !u!1 &1644093727104610865
 GameObject:
   m_ObjectHideFlags: 0
