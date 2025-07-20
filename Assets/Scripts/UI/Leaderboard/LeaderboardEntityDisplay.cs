@@ -7,34 +7,38 @@ using Unity.Netcode;
 
 public class LeaderboardEntityDisplay : MonoBehaviour
 {
-    [SerializeField] private TMP_Text displayText;
+    [SerializeField] private TMP_Text UsernameText;
+    [SerializeField] private TMP_Text ScoreText;
     [SerializeField] private Color myColour;
 
     private FixedString32Bytes playerName;
 
     public ulong ClientId { get; private set; }
-    public int Coins { get; private set; }
+    public int TagTimed { get; private set; }
 
-    public void Initialise(ulong clientId, FixedString32Bytes playerName, int coins)
+    public void Initialise(ulong clientId, FixedString32Bytes playerName, int tagTimes)
     {
         ClientId = clientId;
         this.playerName = playerName;
-        if(clientId == NetworkManager.Singleton.LocalClientId)
+        if (clientId == NetworkManager.Singleton.LocalClientId)
         {
-            displayText.color = myColour; //possibly capital C
+            UsernameText.color = myColour; //possibly capital C
         }
-        UpdateCoins(coins);
+        UpdateTagTime(tagTimes);
     }
 
-    public void UpdateCoins(int coins)
+    public void UpdateTagTime(int tagTimes)
     {
-        Coins = coins;
+        TagTimed = tagTimes;
 
         UpdateText();
     }
 
     public void UpdateText()
     {
-        displayText.text = $"{transform.GetSiblingIndex()+1}. {playerName} ({Coins})";
+        // UsernameText.text = $"{transform.GetSiblingIndex()+1}. {playerName} ({TagTimed})";
+        UsernameText.text = $"{playerName}";
+
+        ScoreText.text = $"{TagTimed}";
     }
 }

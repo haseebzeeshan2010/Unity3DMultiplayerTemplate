@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -23,7 +22,10 @@ public class Leaderboard : NetworkBehaviour
     {
         if (IsClient)
         {
+            // Subscribe to NetworkList changes for UI updates
             leaderboardEntities.OnListChanged += HandleLeaderboardEntitiesChanged;
+            
+            // Handle existing entities (late-joining clients)
             foreach (LeaderboardEntityState entity in leaderboardEntities)
             {
                 HandleLeaderboardEntitiesChanged(new NetworkListEvent<LeaderboardEntityState>
@@ -36,14 +38,16 @@ public class Leaderboard : NetworkBehaviour
 
         if (IsServer)
         {
-            TankPlayer[] players = FindObjectsByType<TankPlayer>(FindObjectsSortMode.None);
-            foreach (TankPlayer player in players)
+            // Find existing players and register them
+            Player[] existingPlayers = FindObjectsByType<Player>(FindObjectsSortMode.None);
+            foreach (Player player in existingPlayers)
             {
                 HandlePlayerSpawned(player);
             }
 
-            TankPlayer.OnPlayerSpawned += HandlePlayerSpawned;
-            TankPlayer.OnPlayerDespawned += HandlePlayerDespawned;
+            // Subscribe to player lifecycle events
+            Player.OnPlayerSpawned += HandlePlayerSpawned;
+            Player.OnPlayerDespawned += HandlePlayerDespawned;
         }
     }
 
@@ -56,8 +60,67 @@ public class Leaderboard : NetworkBehaviour
 
         if (IsServer)
         {
-            TankPlayer.OnPlayerSpawned -= HandlePlayerSpawned;
-            TankPlayer.OnPlayerDespawned -= HandlePlayerDespawned;
+            Player.OnPlayerSpawned -= HandlePlayerSpawned;
+            Player.OnPlayerDespawned -= HandlePlayerDespawned;
+        }
+    }
+
+    private void HandlePlayerSpawned(Player player)
+    {
+        TagCounter tagCounter = player.GetComponent<TagCounter>();
+        if (tagCounter == null)
+        {
+            Debug.LogWarning($"Player {player.OwnerClientId} spawned without TagCounter component!");
+            return;
+        }
+
+        // Add player to leaderboard with initial tag time
+        leaderboardEntities.Add(new LeaderboardEntityState
+        {
+            ClientId = player.OwnerClientId,
+            PlayerName = player.PlayerName.Value,
+            TagTimed = Mathf.FloorToInt(tagCounter.TotalTaggedTime) // Repurpose TagTimed field for tag time
+        });
+
+        // Subscribe to tag time changes for this player
+        tagCounter.totalTaggedTime.OnValueChanged += (oldTime, newTime) =>
+            HandleTagTimeChanged(player.OwnerClientId, newTime);
+    }
+
+    private void HandlePlayerDespawned(Player player)
+    {
+        TagCounter tagCounter = player.GetComponent<TagCounter>();
+        if (tagCounter == null) return;
+
+        // Remove player from leaderboard
+        for (int i = leaderboardEntities.Count - 1; i >= 0; i--)
+        {
+            if (leaderboardEntities[i].ClientId == player.OwnerClientId)
+            {
+                leaderboardEntities.RemoveAt(i);
+                break;
+            }
+        }
+
+        // Unsubscribe from tag time changes
+        tagCounter.totalTaggedTime.OnValueChanged -= (oldTime, newTime) =>
+            HandleTagTimeChanged(player.OwnerClientId, newTime);
+    }
+
+    private void HandleTagTimeChanged(ulong clientId, float newTagTime)
+    {
+        // Update the leaderboard entity with new tag time
+        for (int i = 0; i < leaderboardEntities.Count; i++)
+        {
+            if (leaderboardEntities[i].ClientId != clientId) continue;
+
+            leaderboardEntities[i] = new LeaderboardEntityState
+            {
+                ClientId = leaderboardEntities[i].ClientId,
+                PlayerName = leaderboardEntities[i].PlayerName,
+                TagTimed = Mathf.FloorToInt(newTagTime) // Store tag time as integer seconds
+            };
+            return;
         }
     }
 
@@ -66,6 +129,7 @@ public class Leaderboard : NetworkBehaviour
         switch (changeEvent.Type)
         {
             case NetworkListEvent<LeaderboardEntityState>.EventType.Add:
+                // Create new display entity if it doesn't exist
                 if (!entityDisplays.Any(x => x.ClientId == changeEvent.Value.ClientId))
                 {
                     LeaderboardEntityDisplay leaderboardEntity =
@@ -73,11 +137,13 @@ public class Leaderboard : NetworkBehaviour
                     leaderboardEntity.Initialise(
                         changeEvent.Value.ClientId,
                         changeEvent.Value.PlayerName,
-                        changeEvent.Value.Coins);
+                        changeEvent.Value.TagTimed); // TagTimed field contains tag time
                     entityDisplays.Add(leaderboardEntity);
                 }
                 break;
+
             case NetworkListEvent<LeaderboardEntityState>.EventType.Remove:
+                // Remove display entity
                 LeaderboardEntityDisplay displayToRemove =
                     entityDisplays.FirstOrDefault(x => x.ClientId == changeEvent.Value.ClientId);
                 if (displayToRemove != null)
@@ -87,79 +153,37 @@ public class Leaderboard : NetworkBehaviour
                     entityDisplays.Remove(displayToRemove);
                 }
                 break;
+
             case NetworkListEvent<LeaderboardEntityState>.EventType.Value:
+                // Update existing display entity
                 LeaderboardEntityDisplay displayToUpdate =
                     entityDisplays.FirstOrDefault(x => x.ClientId == changeEvent.Value.ClientId);
                 if (displayToUpdate != null)
                 {
-                    displayToUpdate.UpdateCoins(changeEvent.Value.Coins);
+                    displayToUpdate.UpdateTagTime(changeEvent.Value.TagTimed); // Update with new tag time
                 }
                 break;
         }
 
-        entityDisplays.Sort((x,y) => y.Coins.CompareTo(x.Coins));
+        // Sort by tag time (highest first - most tagged time = worst performance)
+        entityDisplays.Sort((x, y) => y.TagTimed.CompareTo(x.TagTimed));
 
+        // Update display order and visibility
         for (int i = 0; i < entityDisplays.Count; i++)
         {
-            entityDisplays[i].transform.SetSiblingIndex(i); // Sort the displays in the hierarchy
+            entityDisplays[i].transform.SetSiblingIndex(i);
             entityDisplays[i].UpdateText();
             bool shouldShow = i <= entitiesToDisplay - 1;
             entityDisplays[i].gameObject.SetActive(shouldShow);
         }
 
+        // Always show local player if they're outside top N
         LeaderboardEntityDisplay myDisplay = 
             entityDisplays.FirstOrDefault(x => x.ClientId == NetworkManager.Singleton.LocalClientId);
-        if (myDisplay != null)
+        if (myDisplay != null && myDisplay.transform.GetSiblingIndex() >= entitiesToDisplay)
         {
-            if(myDisplay.transform.GetSiblingIndex() >= entitiesToDisplay)
-            {
-                leaderboardEntityHolder.GetChild(entitiesToDisplay - 1).gameObject.SetActive(false); // Move my display to the bottom of the list
-                myDisplay.gameObject.SetActive(true);
-            }
-        }
-    }
-
-    private void HandlePlayerSpawned(TankPlayer player)
-    {
-        leaderboardEntities.Add(new LeaderboardEntityState
-        {
-            ClientId = player.OwnerClientId,
-            PlayerName = player.PlayerName.Value,
-            Coins = 0
-        });
-
-        player.Wallet.TotalCoins.OnValueChanged += (oldCoins, newCoins) =>
-            HandleCoinsChanged(player.OwnerClientId, newCoins);
-    }
-
-    private void HandlePlayerDespawned(TankPlayer player)
-    {
-        foreach (LeaderboardEntityState entity in leaderboardEntities)
-        {
-            if (entity.ClientId != player.OwnerClientId) { continue; }
-
-            leaderboardEntities.Remove(entity);
-            break;
-        }
-
-        player.Wallet.TotalCoins.OnValueChanged -= (oldCoins, newCoins) =>
-            HandleCoinsChanged(player.OwnerClientId, newCoins);
-    }
-
-    private void HandleCoinsChanged(ulong clientId, int newCoins)
-    {
-        for (int i = 0; i < leaderboardEntities.Count; i++)
-        {
-            if (leaderboardEntities[i].ClientId != clientId) { continue; }
-
-            leaderboardEntities[i] = new LeaderboardEntityState
-            {
-                ClientId = leaderboardEntities[i].ClientId,
-                PlayerName = leaderboardEntities[i].PlayerName,
-                Coins = newCoins
-            };
-
-            return;
+            leaderboardEntityHolder.GetChild(entitiesToDisplay - 1).gameObject.SetActive(false);
+            myDisplay.gameObject.SetActive(true);
         }
     }
 }

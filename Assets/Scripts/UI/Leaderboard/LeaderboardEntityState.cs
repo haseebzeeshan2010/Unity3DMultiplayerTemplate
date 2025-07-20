@@ -6,7 +6,7 @@ public struct LeaderboardEntityState : INetworkSerializable, IEquatable<Leaderbo
 {
     public ulong ClientId;
     public FixedString32Bytes PlayerName;
-    public int Coins;
+    public int TagTimed;
 
     
 
@@ -14,13 +14,13 @@ public struct LeaderboardEntityState : INetworkSerializable, IEquatable<Leaderbo
     {
         serializer.SerializeValue(ref ClientId);
         serializer.SerializeValue(ref PlayerName);
-        serializer.SerializeValue(ref Coins);
+        serializer.SerializeValue(ref TagTimed);
     }
 
 
     public bool Equals(LeaderboardEntityState other)
     {
-        return ClientId == other.ClientId && PlayerName.Equals(other.PlayerName) && Coins == other.Coins;
+        return ClientId == other.ClientId && PlayerName.Equals(other.PlayerName) && TagTimed == other.TagTimed;
     }
 
 }
