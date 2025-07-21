@@ -4,6 +4,7 @@ using TMPro;
 using Unity.Collections;
 using UnityEngine;
 using Unity.Netcode;
+using DG.Tweening; // Add DOTween reference
 
 public class LeaderboardEntityDisplay : MonoBehaviour
 {
@@ -22,7 +23,7 @@ public class LeaderboardEntityDisplay : MonoBehaviour
         this.playerName = playerName;
         if (clientId == NetworkManager.Singleton.LocalClientId)
         {
-            UsernameText.color = myColour; //possibly capital C
+            UsernameText.color = myColour;
         }
         UpdateTagTime(tagTimes);
     }
@@ -30,15 +31,27 @@ public class LeaderboardEntityDisplay : MonoBehaviour
     public void UpdateTagTime(int tagTimes)
     {
         TagTimed = tagTimes;
-
+        
+        // Animate score change with a subtle pulse effect
+        if (ScoreText != null)
+        {
+            ScoreText.transform.DOPunchScale(Vector3.one * 0.1f, 0.3f, 1, 0.5f);
+        }
+        
         UpdateText();
     }
 
     public void UpdateText()
     {
-        // UsernameText.text = $"{transform.GetSiblingIndex()+1}. {playerName} ({TagTimed})";
         UsernameText.text = $"{playerName}";
+        ScoreText.text = $"{TagTimed}s"; // Add 's' for seconds
+    }
 
-        ScoreText.text = $"{TagTimed}";
+    private void OnDestroy()
+    {
+        // Kill any running tweens on this object
+        transform.DOKill();
+        if (ScoreText != null)
+            ScoreText.transform.DOKill();
     }
 }

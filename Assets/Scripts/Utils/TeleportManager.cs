@@ -96,9 +96,4 @@ public class TeleportManager : MonoBehaviour
             }
         }
     }
-
-    void Update()
-    {
-        // ...existing code...
-    }
 }

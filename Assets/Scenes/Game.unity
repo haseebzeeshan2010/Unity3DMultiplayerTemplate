@@ -135,7 +135,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &3619046
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -448,7 +448,7 @@ GameObject:
   - component: {fileID: 90205133}
   - component: {fileID: 90205132}
   m_Layer: 4
-  m_Name: Plane (1)
+  m_Name: Sea
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1210,7 +1210,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6fa1708a3fdc37a4ea666c0428d7ba90, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &226109787
 GameObject:
   m_ObjectHideFlags: 0
@@ -6514,7 +6513,7 @@ GameObject:
   - component: {fileID: 1869631788}
   - component: {fileID: 1869631787}
   m_Layer: 4
-  m_Name: Plane
+  m_Name: Lake
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7460,6 +7459,10 @@ MonoBehaviour:
   leaderboardEntityHolder: {fileID: 236324596}
   leaderboardEntityPrefab: {fileID: 457759602886745748, guid: 2f097618f0025a542a4f11346ec334b8, type: 3}
   entitiesToDisplay: 8
+  itemHeight: 60
+  animationDuration: 0.5
+  staggerDelay: 0.05
+  animationEase: 12
 --- !u!1 &2146089274
 GameObject:
   m_ObjectHideFlags: 0

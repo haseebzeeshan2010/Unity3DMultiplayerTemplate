@@ -1,39 +1,77 @@
 using UnityEngine;
 using Unity.Netcode;
 
-public class TagStarter : NetworkBehaviour
+/// <summary>
+/// Handles random player tagging coordination. Does not require NetworkBehaviour 
+/// since it only coordinates local events and modifies existing NetworkVariables.
+/// </summary>
+public class TagStarter : MonoBehaviour
 {
-    private bool isChecking = false;
+    private bool isProcessing = false;
 
-    public void StartCheckingForSinglePlayer()
+    private void OnEnable()
     {
-        if (!IsServer) return; // Ensure only server runs this
-        if (!isChecking)
-            StartCoroutine(CheckForSinglePlayerCoroutine());
+        NetworkTimer.CountdownBegan += OnCountdownBegan;
     }
 
-    // Example: Call this in OnNetworkSpawn to start checking when the object is spawned on the network
-    public override void OnNetworkSpawn()
+    private void OnDisable()
     {
-        base.OnNetworkSpawn();
-        StartCheckingForSinglePlayer();
+        NetworkTimer.CountdownBegan -= OnCountdownBegan;
     }
 
-    private System.Collections.IEnumerator CheckForSinglePlayerCoroutine()
+    private void OnCountdownBegan()
     {
-        isChecking = true;
-        while (NetworkManager.Singleton != null && NetworkManager.Singleton.ConnectedClientsList.Count != 1)
+        SelectRandomPlayerToTag();
+    }
+
+    public void SelectRandomPlayerToTag()
+    {
+        // Check if we're the server/host in the Relay session
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer || isProcessing) 
+            return;
+            
+        StartCoroutine(SelectRandomPlayerCoroutine());
+    }
+
+    private System.Collections.IEnumerator SelectRandomPlayerCoroutine()
+    {
+        isProcessing = true;
+
+        try
         {
-            yield return new WaitForSeconds(0.5f);
+            // 3-second delay before tagging begins (gives players preparation time)
+            yield return new WaitForSeconds(3f);
+
+            // Validate server authority after delay (important for Relay host authority)
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) 
+                yield break;
+
+            var connectedClients = NetworkManager.Singleton.ConnectedClientsList;
+            
+            if (connectedClients.Count == 0)
+            {
+                Debug.LogWarning("[TagStarter] No connected clients available for tagging.");
+                yield break;
+            }
+
+            // Select and tag random player (server-authoritative)
+            int randomIndex = Random.Range(0, connectedClients.Count);
+            var selectedClient = connectedClients[randomIndex];
+            
+            if (selectedClient.PlayerObject?.GetComponent<Player>() is Player playerComponent)
+            {
+                // Modify the NetworkVariable (server authority maintained)
+                playerComponent.TagStatus.Value = Player.TagState.Tagged;
+                Debug.Log($"[TagStarter] Tagged random player - Client ID: {selectedClient.ClientId}");
+            }
+            else
+            {
+                Debug.LogWarning($"[TagStarter] Invalid player object for Client ID: {selectedClient.ClientId}");
+            }
         }
-        isChecking = false;
-        // Single player found, you can add your logic here if needed
-        if (!IsServer) yield break; // Double check server-side
-        var playerObject = NetworkManager.Singleton.ConnectedClientsList[0].PlayerObject;
-        var playerComponent = playerObject != null ? playerObject.GetComponent<Player>() : null;
-        if (playerComponent != null)
+        finally
         {
-            playerComponent.TagStatus.Value = Player.TagState.Tagged; // Set the player to be taggable
+            isProcessing = false;
         }
     }
 }

@@ -14,10 +14,28 @@ public class TagCounter : NetworkBehaviour
 
     // Timestamp when tagging started, negative if not currently tagged
     private float tagStartTime = -1f;
+    
+    [Tooltip("How often to sync live tagged time over network (0 = only on tag end)")]
+    [SerializeField] private float liveSyncInterval = 1f; // Sync every second while tagged
+    private float lastSyncTime = 0f;
 
     // Read-only accessors for other systems
-    public float TotalTaggedTime => totalTaggedTime.Value;
+    public float TotalTaggedTime => GetCurrentTotalTime();
     public string Username => username;
+
+    // Returns total time including current tag session if active
+    private float GetCurrentTotalTime()
+    {
+        float baseTime = totalTaggedTime.Value;
+        
+        // If currently tagged, add elapsed time since tag started
+        if (tagStartTime >= 0f)
+        {
+            baseTime += Time.time - tagStartTime;
+        }
+        
+        return baseTime;
+    }
 
     public override void OnNetworkSpawn()
     {
@@ -48,6 +66,21 @@ public class TagCounter : NetworkBehaviour
         base.OnNetworkDespawn();
     }
 
+    private void Update()
+    {
+        // Server-side: Periodically sync live tagged time to network
+        if (IsServer && tagStartTime >= 0f && liveSyncInterval > 0f)
+        {
+            if (Time.time - lastSyncTime >= liveSyncInterval)
+            {
+                // Update NetworkVariable with current accumulated time
+                totalTaggedTime.Value += Time.time - tagStartTime;
+                tagStartTime = Time.time; // Reset start time to current
+                lastSyncTime = Time.time;
+            }
+        }
+    }
+
     private void OnPlayerNameChanged(FixedString32Bytes previous, FixedString32Bytes current)
     {
         username = current.ToString();
@@ -62,10 +95,11 @@ public class TagCounter : NetworkBehaviour
         {
             // Begin timing when tagged
             tagStartTime = Time.time;
+            lastSyncTime = Time.time;
         }
         else if (previous == Player.TagState.Tagged && tagStartTime >= 0f)
         {
-            // Accumulate duration and reset
+            // Final accumulation when tag ends
             totalTaggedTime.Value += Time.time - tagStartTime;
             tagStartTime = -1f;
         }
@@ -80,5 +114,12 @@ public class TagCounter : NetworkBehaviour
     public bool HasValidUsername()
     {
         return !string.IsNullOrEmpty(username);
+    }
+    
+    // Get formatted time string for UI display
+    public string GetFormattedTime()
+    {
+        float time = GetCurrentTotalTime();
+        return $"{time:F1}s"; // Shows one decimal place
     }
 }
