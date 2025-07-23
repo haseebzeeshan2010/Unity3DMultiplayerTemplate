@@ -96,21 +96,25 @@ public class LeaderboardEntityDisplay : MonoBehaviour
             StopCoroutine(connectionCheckCoroutine);
             connectionCheckCoroutine = null;
         }
-        
+
         // Animate fade out with CanvasGroup alpha
         if (canvasGroup != null)
         {
             canvasGroup.DOFade(0f, fadeOutDuration)
                 .SetEase(fadeOutEase)
-                .OnComplete(() => {
+                .OnComplete(() =>
+                {
                     // Add a small delay before destroying the GameObject
-                    DOVirtual.DelayedCall(1f, () => {
+                    DOVirtual.DelayedCall(1f, () =>
+                    {
                         if (gameObject != null)
                         {
                             Destroy(gameObject);
                         }
                     });
                 });
+            
+            
         }
     }
 
