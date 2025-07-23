@@ -18,9 +18,13 @@ public class Leaderboard : NetworkBehaviour
     [SerializeField] private float staggerDelay = 0.02f; // Delay between each item animation
     [SerializeField] private Ease animationEase = Ease.OutQuart;
 
+    [Header("Player Connection Check")]
+    [SerializeField] private float connectionCheckInterval = 2f; // Check every 2 seconds
+
     private NetworkList<LeaderboardEntityState> leaderboardEntities;
     private List<LeaderboardEntityDisplay> entityDisplays = new List<LeaderboardEntityDisplay>();
     private Sequence currentAnimationSequence;
+    private Coroutine connectionCheckCoroutine;
 
     private void Awake()
     {
@@ -57,6 +61,9 @@ public class Leaderboard : NetworkBehaviour
             // Subscribe to player lifecycle events
             Player.OnPlayerSpawned += HandlePlayerSpawned;
             Player.OnPlayerDespawned += HandlePlayerDespawned;
+
+            // Start connection check coroutine
+            connectionCheckCoroutine = StartCoroutine(CheckPlayerConnections());
         }
     }
 
@@ -64,6 +71,13 @@ public class Leaderboard : NetworkBehaviour
     {
         // Kill any running animations
         currentAnimationSequence?.Kill();
+
+        // Stop connection check coroutine
+        if (connectionCheckCoroutine != null)
+        {
+            StopCoroutine(connectionCheckCoroutine);
+            connectionCheckCoroutine = null;
+        }
 
         if (IsClient)
         {
@@ -74,6 +88,29 @@ public class Leaderboard : NetworkBehaviour
         {
             Player.OnPlayerSpawned -= HandlePlayerSpawned;
             Player.OnPlayerDespawned -= HandlePlayerDespawned;
+        }
+    }
+
+    private IEnumerator CheckPlayerConnections()
+    {
+        while (IsServer && NetworkManager.Singleton != null)
+        {
+            yield return new WaitForSeconds(connectionCheckInterval);
+
+            // Check each leaderboard entity to see if the player is still connected
+            for (int i = leaderboardEntities.Count - 1; i >= 0; i--)
+            {
+                ulong clientId = leaderboardEntities[i].ClientId;
+
+                // Check if player is still connected using NetworkManager
+                if (!NetworkManager.Singleton.ConnectedClients.ContainsKey(clientId))
+                {
+                    Debug.Log($"Player {clientId} disconnected, removing from leaderboard");
+
+                    // Remove from leaderboard (this will trigger network sync and destroy the object for all clients)
+                    leaderboardEntities.RemoveAt(i);
+                }
+            }
         }
     }
 
@@ -142,7 +179,7 @@ public class Leaderboard : NetworkBehaviour
         {
             case NetworkListEvent<LeaderboardEntityState>.EventType.Add:
                 // Create new display entity if it doesn't exist
-                if (!entityDisplays.Any(x => x.ClientId == changeEvent.Value.ClientId))
+                if (!entityDisplays.Any(x => x != null && x.ClientId == changeEvent.Value.ClientId))
                 {
                     LeaderboardEntityDisplay leaderboardEntity =
                         Instantiate(leaderboardEntityPrefab, leaderboardEntityHolder);
@@ -162,25 +199,30 @@ public class Leaderboard : NetworkBehaviour
             case NetworkListEvent<LeaderboardEntityState>.EventType.Remove:
                 // Remove display entity with fade-out animation
                 LeaderboardEntityDisplay displayToRemove =
-                    entityDisplays.FirstOrDefault(x => x.ClientId == changeEvent.Value.ClientId);
+                    entityDisplays.FirstOrDefault(x => x != null && x.ClientId == changeEvent.Value.ClientId);
                 if (displayToRemove != null)
                 {
+                    // Remove from list immediately to prevent access during animation
+                    entityDisplays.Remove(displayToRemove);
+
                     // Animate removal
                     displayToRemove.transform.DOScale(0f, animationDuration * 0.5f)
                         .SetEase(Ease.InBack)
                         .OnComplete(() =>
                         {
-                            displayToRemove.transform.SetParent(null);
-                            Destroy(displayToRemove.gameObject);
+                            if (displayToRemove != null)
+                            {
+                                displayToRemove.transform.SetParent(null);
+                                Destroy(displayToRemove.gameObject);
+                            }
                         });
-                    entityDisplays.Remove(displayToRemove);
                 }
                 break;
 
             case NetworkListEvent<LeaderboardEntityState>.EventType.Value:
                 // Update existing display entity
                 LeaderboardEntityDisplay displayToUpdate =
-                    entityDisplays.FirstOrDefault(x => x.ClientId == changeEvent.Value.ClientId);
+                    entityDisplays.FirstOrDefault(x => x != null && x.ClientId == changeEvent.Value.ClientId);
                 if (displayToUpdate != null)
                 {
                     displayToUpdate.UpdateTagTime(changeEvent.Value.TagTimed);
@@ -194,11 +236,19 @@ public class Leaderboard : NetworkBehaviour
 
     private void AnimateToNewPositions()
     {
+        // Clean up null references first
+        entityDisplays.RemoveAll(x => x == null);
+
         // Kill any existing animation sequence
-        // currentAnimationSequence?.Kill();
+        currentAnimationSequence?.Kill();
 
         // Sort by tag time (highest first - most tagged time = worst performance)
-        entityDisplays.Sort((x, y) => y.TagTimed.CompareTo(x.TagTimed));
+        // Filter out null references before sorting
+        var validDisplays = entityDisplays.Where(x => x != null).ToList();
+        validDisplays.Sort((x, y) => y.TagTimed.CompareTo(x.TagTimed));
+
+        // Update the main list with cleaned and sorted data
+        entityDisplays = validDisplays;
 
         // Create new animation sequence
         currentAnimationSequence = DOTween.Sequence();
@@ -207,6 +257,10 @@ public class Leaderboard : NetworkBehaviour
         for (int i = 0; i < entityDisplays.Count; i++)
         {
             LeaderboardEntityDisplay display = entityDisplays[i];
+
+            // Double-check for null before accessing
+            if (display == null) continue;
+
             Vector3 targetPosition = new Vector3(0, -i * itemHeight, 0);
 
             // Determine visibility based on rank
@@ -229,7 +283,11 @@ public class Leaderboard : NetworkBehaviour
             {
                 Tween fadeOutTween = display.transform.DOScale(Vector3.zero, animationDuration * 0.5f)
                     .SetEase(Ease.InBack)
-                    .OnComplete(() => display.gameObject.SetActive(false));
+                    .OnComplete(() =>
+                    {
+                        if (display != null && display.gameObject != null)
+                            display.gameObject.SetActive(false);
+                    });
                 currentAnimationSequence.Join(fadeOutTween);
             }
 
@@ -239,13 +297,18 @@ public class Leaderboard : NetworkBehaviour
             else
                 currentAnimationSequence.Join(positionTween.SetDelay(i * staggerDelay));
 
-            // Update text after position animation
-            currentAnimationSequence.AppendCallback(() => display.UpdateText());
+            // Update text after position animation - capture the display reference
+            LeaderboardEntityDisplay capturedDisplay = display;
+            currentAnimationSequence.AppendCallback(() =>
+            {
+                if (capturedDisplay != null)
+                    capturedDisplay.UpdateText();
+            });
         }
 
         // Handle local player visibility (always show if outside top N)
         LeaderboardEntityDisplay myDisplay =
-            entityDisplays.FirstOrDefault(x => x.ClientId == NetworkManager.Singleton.LocalClientId);
+            entityDisplays.FirstOrDefault(x => x != null && x.ClientId == NetworkManager.Singleton.LocalClientId);
         if (myDisplay != null)
         {
             int myRank = entityDisplays.IndexOf(myDisplay);
@@ -255,10 +318,17 @@ public class Leaderboard : NetworkBehaviour
                 if (entityDisplays.Count > entitiesToDisplay)
                 {
                     LeaderboardEntityDisplay lastVisible = entityDisplays[entitiesToDisplay - 1];
-                    Tween hideLastTween = lastVisible.transform.DOScale(Vector3.zero, animationDuration * 0.3f)
-                        .SetEase(Ease.InBack)
-                        .OnComplete(() => lastVisible.gameObject.SetActive(false));
-                    currentAnimationSequence.Join(hideLastTween);
+                    if (lastVisible != null)
+                    {
+                        Tween hideLastTween = lastVisible.transform.DOScale(Vector3.zero, animationDuration * 0.3f)
+                            .SetEase(Ease.InBack)
+                            .OnComplete(() =>
+                            {
+                                if (lastVisible != null && lastVisible.gameObject != null)
+                                    lastVisible.gameObject.SetActive(false);
+                            });
+                        currentAnimationSequence.Join(hideLastTween);
+                    }
                 }
 
                 // Show local player
