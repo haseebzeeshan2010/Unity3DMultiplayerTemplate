@@ -10,11 +10,10 @@ public class TransportTweaker : MonoBehaviour
         if (transport != null)
         {
 
-            transport.MaxPacketQueueSize = 512; // Reasonable queue size
+            transport.MaxPacketQueueSize = 1024; // Reasonable queue size
 
-
-            transport.MaxPayloadSize = 1200; // 1200 bytes is safer for WebGL (MTU limits)
-            transport.MaxSendQueueSize = 512; // Conservative for browser memory limits
+            transport.MaxPayloadSize = 2400; // 2400 bytes is safer for WebGL (MTU limits)
+            transport.MaxSendQueueSize = 1024; // Conservative for browser memory limits
 
             //For Faster Performance on Desktop
             // transport.MaxPacketQueueSize = 512; // adjust as needed

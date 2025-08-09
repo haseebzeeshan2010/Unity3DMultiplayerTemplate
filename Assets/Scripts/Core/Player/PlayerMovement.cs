@@ -18,12 +18,7 @@ public class PlayerMovement : NetworkBehaviour
     private Vector2 previousMovementInput;
     private Vector3 currentVelocity; // Used by SmoothDamp
 
-    // Network sync fields
-    private Vector3 networkVelocity = Vector3.zero;
-    private Vector3 networkPosition = Vector3.zero;
-    private Vector3 estimatedPosition = Vector3.zero;
-    // private float lastUpdateTime = 0f;
-    // private float positionErrorThreshold = 0.5f;
+
 
     public Vector3 MovementDirection;
     public float MovementSpeed;
