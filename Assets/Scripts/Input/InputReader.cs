@@ -12,6 +12,7 @@ public class InputReader : ScriptableObject, IPlayerActions
     public event Action<bool> PrimaryFireEvent;
 
     private Controls controls;
+    internal Vector2 MovementInput;
 
     private void OnEnable()
     {

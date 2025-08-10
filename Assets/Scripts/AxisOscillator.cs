@@ -10,27 +10,24 @@ public class AxisOscillator : MonoBehaviour
     public Axis oscillationAxis = Axis.X;
     public float amplitude = 1f;         // Distance from center to peak
     public float frequency = 1f;         // Oscillations per second
-    public Vector3 centerPosition;       // Oscillation center position
+    public Vector3 centerPosition;       // Oscillation center position (set in Inspector or via code)
 
     [Header("Networking")]
     [SerializeField] private AnticipatedNetworkTransform anticipatedNetworkTransform;
 
     private NetworkObject networkObject;
 
-    private void Start()
+    void Awake()
     {
-        // Try to get the NetworkObject component.
         networkObject = GetComponent<NetworkObject>();
-
-        // If a NetworkObject exists and this client is not the owner, disable the script.
-        if (networkObject != null && !networkObject.IsOwner)
-        {
-            this.enabled = false;
-        }
     }
 
-    private void Update()
+    void Update()
     {
+        // Only run if this client is the owner
+        if (networkObject != null && !networkObject.IsOwner)
+            return;
+
         float offset = Mathf.Sin(Time.time * frequency * Mathf.PI * 2f) * amplitude;
         Vector3 newPosition = centerPosition;
 
